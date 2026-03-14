@@ -1,0 +1,27 @@
+{
+    "name": "@alphaclaw/shared",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js",
+        "default": "./dist/index.js"
+      }
+    },
+    "scripts": {
+      "build": "tsc",
+      "type-check": "tsc --noEmit",
+      "test": "vitest run",
+      "test:watch": "vitest",
+      "lint": "echo 'no linter configured yet'"
+    },
+    "devDependencies": {
+      "@alphaclaw/typescript-config": "workspace:*",
+      "typescript": "^5.x"
+    }
+  }
+  
