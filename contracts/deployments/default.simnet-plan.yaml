@@ -77,8 +77,8 @@ plan:
             path: contracts/RewardToken.clar
             clarity-version: 4
         - emulated-contract-publish:
-            contract-name: alphaclaw
+            contract-name: alphaclaw-stake
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: contracts/alphaclaw.clar
+            path: contracts/alphaclaw-stake.clar
             clarity-version: 4
       epoch: "3.3"

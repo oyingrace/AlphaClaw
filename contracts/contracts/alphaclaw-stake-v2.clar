@@ -92,11 +92,16 @@
 ;; -----------------------------
 
 ;; Stake STX into the contract.
-;; Users must send STX along with this call; the amount is taken from tx-sender's
-;; STX transfer to the contract (amount parameter is for explicitness / sanity check).
+;; The contract pulls STX from the caller into its own balance using `stx-transfer?`,
+;; then records / updates the stake position.
 (define-public (stake (amount uint))
   (begin
     (asserts! (> amount u0) (err u100))
+    ;; Move STX from the user (tx-sender) into the contract's balance by
+    ;; transferring to this contract's principal.
+    (asserts!
+      (is-ok (stx-transfer? amount tx-sender 'ST1HGXPGWSHPHW3PNC66FWQ5VG1PFNYKBCSCQ7WMJ.alphaclaw-stake-v2))
+      (err u200))
     (let
       (
         (prev (get-stake tx-sender))
@@ -145,12 +150,11 @@
           (map-delete stakes { staker: tx-sender })
           (var-set total-staked (- (var-get total-staked) amount))
 
-          ;; Return staked STX.
-          ;; In this simplified demo we avoid using `as-contract` so that the
-          ;; contract compiles cleanly in this Clarinet environment.
-          ;; NOTE: This transfer is effectively a no-op (from tx-sender to tx-sender),
-          ;; but keeps the type/signature correct.
-          (asserts! (is-ok (stx-transfer? amount tx-sender tx-sender)) (err u200))
+          ;; Return staked STX from this contract back to the user.
+          (asserts!
+            (is-ok
+              (stx-transfer? amount 'ST1HGXPGWSHPHW3PNC66FWQ5VG1PFNYKBCSCQ7WMJ.alphaclaw-stake tx-sender))
+            (err u200))
 
           ;; Mint / transfer rewards
           (if (> rewards u0)

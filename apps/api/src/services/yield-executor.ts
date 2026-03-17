@@ -5,48 +5,55 @@
  */
 
 import {
-    AnchorMode,
-    PostConditionMode,
-    broadcastTransaction,
-    makeContractCall,
-    uintCV,
-    noneCV,
-    contractPrincipalCV,
-  } from '@stacks/transactions';
-  import type { YieldExecutionResult } from '@alphaclaw/shared';
-  import { getStacksTokenBalance, getStacksNetwork, executeStacksSwap } from '../lib/stacks-trade.js';
-  import { getStxBalance } from '../lib/stacks-client.js';
-  import { deriveStacksServerWalletKey } from '../lib/stacks-server-wallet.js';
-  import { getTokenAddress } from '@alphaclaw/shared';
-  import { getTokenPriceUsd } from './price-service.js';
-  
-  const STX_DECIMALS = 6;
-  const STACKING_DAO_ADDRESS = 'SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG';
-  const STACKING_DAO_CORE = 'stacking-dao-core-v6';
-  const DIRECT_HELPERS = 'direct-helpers-v4';
-  const STAKING_CONTRACT = 'staking-v0';
-  const COMMISSION_CONTRACT = 'commission-v2';
-  const RESERVE = 'reserve-v1';
-  
-  /** stSTX token contract (vault identifier for positions) */
-  export const STSTX_TOKEN_CONTRACT = `${STACKING_DAO_ADDRESS}.ststx-token`;
-  
-  function parseContractPrincipal(principal: string): { address: string; name: string } {
-    const [address, name] = principal.split('.');
-    if (!address || !name) throw new Error(`Invalid contract principal: ${principal}`);
-    return { address, name };
+  AnchorMode,
+  PostConditionMode,
+  broadcastTransaction,
+  makeContractCall,
+  uintCV,
+  noneCV,
+  contractPrincipalCV,
+} from '@stacks/transactions';
+import type { YieldExecutionResult } from '@alphaclaw/shared';
+import { STACKS_CONTRACTS } from '@alphaclaw/shared';
+import { getStacksTokenBalance, getStacksNetwork, executeStacksSwap } from '../lib/stacks-trade.js';
+import { getStxBalance } from '../lib/stacks-client.js';
+import { deriveStacksServerWalletKey } from '../lib/stacks-server-wallet.js';
+import { getTokenAddress } from '@alphaclaw/shared';
+import { getTokenPriceUsd } from './price-service.js';
+const STX_DECIMALS = 6;
+const STACKING_DAO_ADDRESS = 'SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG';
+const STACKING_DAO_CORE = 'stacking-dao-core-v6';
+const DIRECT_HELPERS = 'direct-helpers-v4';
+const STAKING_CONTRACT = 'staking-v0';
+const COMMISSION_CONTRACT = 'commission-v2';
+const RESERVE = 'reserve-v1';
+
+/** stSTX token contract (vault identifier for positions) */
+export const STSTX_TOKEN_CONTRACT = `${STACKING_DAO_ADDRESS}.ststx-token`;
+
+function parseContractPrincipal(principal: string): { address: string; name: string } {
+  const [address, name] = principal.split('.');
+  if (!address || !name) throw new Error(`Invalid contract principal: ${principal}`);
+  return { address, name };
+}
+
+/**
+ * Check if vaultAddress refers to Stacking DAO stSTX (deposit STX -> receive stSTX).
+ * On testnet we allow any vault address and route to the AlphaClaw demo staking contract instead.
+ */
+function isStstxVault(vaultAddress: string): boolean {
+  // On testnet, we do not require the stSTX vault – we always route to the
+  // configured AlphaClaw staking contract + RewardToken instead.
+  if (STACKS_CONTRACTS.network === 'testnet') {
+    return true;
   }
-  
-  /**
-   * Check if vaultAddress refers to Stacking DAO stSTX (deposit STX -> receive stSTX).
-   */
-  function isStstxVault(vaultAddress: string): boolean {
-    return (
-      vaultAddress === STSTX_TOKEN_CONTRACT ||
-      vaultAddress === 'SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.ststx-token' ||
-      vaultAddress.toLowerCase().includes('ststx')
-    );
-  }
+
+  return (
+    vaultAddress === STSTX_TOKEN_CONTRACT ||
+    vaultAddress === 'SP4SZE494VC2YC5JYG7AYFQ44F5Q4PYV7DVMDPBG.ststx-token' ||
+    vaultAddress.toLowerCase().includes('ststx')
+  );
+}
   
   /**
    * Deposit: for stSTX we send STX to Stacking DAO and receive stSTX.
@@ -60,7 +67,13 @@ import {
     amountUsd: number;
   }): Promise<YieldExecutionResult> {
     const { serverWalletId, serverWalletAddress, vaultAddress, amountUsd } = params;
-  
+    console.info('[yield-executor] executeYieldDeposit called', {
+      vaultAddress,
+      amountUsd,
+      serverWalletAddress,
+      stacksContracts: STACKS_CONTRACTS,
+    });
+
     if (!isStstxVault(vaultAddress)) {
       return {
         success: false,
@@ -132,39 +145,88 @@ import {
         };
       }
   
-      const senderKey = deriveStacksServerWalletKey(serverWalletId);
-      const { address: contractAddress, name: contractName } = parseContractPrincipal(
-        `${STACKING_DAO_ADDRESS}.${STACKING_DAO_CORE}`,
-      );
-  
-      // Per Stacking DAO docs, deposit takes:
-      // reserve, commission-contract, staking-contract, direct-helpers, stx-amount, referrer (optional principal), pool (optional principal)
-      const reserve = parseContractPrincipal(`${STACKING_DAO_ADDRESS}.${RESERVE}`);
-      const commission = parseContractPrincipal(`${STACKING_DAO_ADDRESS}.${COMMISSION_CONTRACT}`);
-      const staking = parseContractPrincipal(`${STACKING_DAO_ADDRESS}.${STAKING_CONTRACT}`);
-      const directHelpers = parseContractPrincipal(`${STACKING_DAO_ADDRESS}.${DIRECT_HELPERS}`);
-  
-      const tx = await makeContractCall({
-        contractAddress,
-        contractName,
-        // Stacking DAO Core v6 deposit entrypoint
-        functionName: 'deposit',
-        functionArgs: [
-          contractPrincipalCV(reserve.address, reserve.name),
-          contractPrincipalCV(commission.address, commission.name),
-          contractPrincipalCV(staking.address, staking.name),
-          contractPrincipalCV(directHelpers.address, directHelpers.name),
-          uintCV(amountToDeposit),
-          noneCV(), // referrer (optional principal)
-          noneCV(), // pool (optional principal)
-        ],
-        senderKey,
-        network: getStacksNetwork(),
-        // Allow STX to move without explicit post-conditions (we verify on-chain status separately).
-        postConditionMode: PostConditionMode.Allow,
-      });
-  
       const network = getStacksNetwork();
+      const senderKey = deriveStacksServerWalletKey(serverWalletId);
+
+      // Network-dependent routing:
+      // - mainnet: use Stacking DAO stSTX vault (existing behavior)
+      // - testnet: use AlphaClaw demo staking contract + RewardToken
+      let tx;
+      if (STACKS_CONTRACTS.network === 'testnet') {
+        const stakingId = STACKS_CONTRACTS.stakingContractId;
+        if (!stakingId) {
+          return {
+            success: false,
+            action: 'deposit',
+            vaultAddress,
+            error:
+              'STACKS_STAKING_CONTRACT_ID (testnet AlphaClaw staking contract) is not configured.',
+          };
+        }
+
+        const { address: contractAddress, name: contractName } =
+          parseContractPrincipal(stakingId);
+
+        console.info('[yield-executor] building AlphaClaw testnet stake tx', {
+          contractAddress,
+          contractName,
+          amountToDeposit: amountToDeposit.toString(),
+          network: (network as any)?.network,
+          apiUrl: (network as any)?.client?.baseUrl,
+        });
+
+        tx = await makeContractCall({
+          contractAddress,
+          contractName,
+          functionName: 'stake',
+          functionArgs: [uintCV(amountToDeposit)],
+          senderKey,
+          network,
+          postConditionMode: PostConditionMode.Allow,
+        });
+      } else {
+        const { address: contractAddress, name: contractName } = parseContractPrincipal(
+          `${STACKING_DAO_ADDRESS}.${STACKING_DAO_CORE}`,
+        );
+
+        // Per Stacking DAO docs, deposit takes:
+        // reserve, commission-contract, staking-contract, direct-helpers, stx-amount, referrer (optional principal), pool (optional principal)
+        const reserve = parseContractPrincipal(`${STACKING_DAO_ADDRESS}.${RESERVE}`);
+        const commission = parseContractPrincipal(`${STACKING_DAO_ADDRESS}.${COMMISSION_CONTRACT}`);
+        const staking = parseContractPrincipal(`${STACKING_DAO_ADDRESS}.${STAKING_CONTRACT}`);
+        const directHelpers = parseContractPrincipal(
+          `${STACKING_DAO_ADDRESS}.${DIRECT_HELPERS}`,
+        );
+
+        console.info('[yield-executor] building stSTX deposit tx', {
+          contractAddress,
+          contractName,
+          amountToDeposit: amountToDeposit.toString(),
+          network: (network as any)?.network,
+          apiUrl: (network as any)?.client?.baseUrl,
+        });
+
+        tx = await makeContractCall({
+          contractAddress,
+          contractName,
+          // Stacking DAO Core v6 deposit entrypoint
+          functionName: 'deposit',
+          functionArgs: [
+            contractPrincipalCV(reserve.address, reserve.name),
+            contractPrincipalCV(commission.address, commission.name),
+            contractPrincipalCV(staking.address, staking.name),
+            contractPrincipalCV(directHelpers.address, directHelpers.name),
+            uintCV(amountToDeposit),
+            noneCV(), // referrer (optional principal)
+            noneCV(), // pool (optional principal)
+          ],
+          senderKey,
+          network,
+          // Allow STX to move without explicit post-conditions (we verify on-chain status separately).
+          postConditionMode: PostConditionMode.Allow,
+        });
+      }
+  
       const response = await broadcastTransaction({ transaction: tx, network });
   
       // Log and surface broadcast-layer errors from Hiro (e.g. { error, reason }).
@@ -173,7 +235,13 @@ import {
         const msg = `stSTX deposit broadcast failed: ${errObj.error ?? 'unknown'}${
           errObj.reason ? ` (${errObj.reason})` : ''
         }`;
-        console.error('[yield-executor] ', msg);
+        console.error('[yield-executor] stSTX deposit broadcast error', {
+          message: msg,
+          response: errObj,
+          stacksContracts: STACKS_CONTRACTS,
+          serverWalletAddress,
+          vaultAddress,
+        });
         return {
           success: false,
           action: 'deposit',
@@ -263,34 +331,102 @@ import {
         error: `Unsupported vault for Stacks withdraw: ${vaultAddress}. Only stSTX liquid staking is supported.`,
       };
     }
-  
+
     try {
+      // Network-dependent routing:
+      // - mainnet: burn stSTX via Stacking DAO instant-withdraw (existing behavior)
+      // - testnet: call AlphaClaw demo staking contract `unstake` (full position)
+      if (STACKS_CONTRACTS.network === 'testnet') {
+        const stakingId = STACKS_CONTRACTS.stakingContractId;
+        if (!stakingId) {
+          return {
+            success: false,
+            action: 'withdraw',
+            vaultAddress,
+            error:
+              'STACKS_STAKING_CONTRACT_ID (testnet AlphaClaw staking contract) is not configured.',
+          };
+        }
+
+        const { address: contractAddress, name: contractName } =
+          parseContractPrincipal(stakingId);
+        const senderKey = deriveStacksServerWalletKey(serverWalletId);
+        const network = getStacksNetwork();
+
+        console.info('[yield-executor] building AlphaClaw testnet unstake tx', {
+          contractAddress,
+          contractName,
+          network: (network as any)?.network,
+          apiUrl: (network as any)?.client?.baseUrl,
+        });
+
+        const tx = await makeContractCall({
+          contractAddress,
+          contractName,
+          functionName: 'unstake',
+          functionArgs: [],
+          senderKey,
+          network,
+          postConditionMode: PostConditionMode.Allow,
+        });
+
+        const response = await broadcastTransaction({ transaction: tx, network });
+        const txId =
+          typeof response === 'string'
+            ? response
+            : typeof (response as any).txid === 'string'
+              ? (response as any).txid
+              : tx.txid();
+
+        return {
+          success: true,
+          txHash: txId,
+          action: 'withdraw',
+          vaultAddress,
+        };
+      }
+
       const ststxAssetId = getTokenAddress('stSTX');
       if (!ststxAssetId) {
-        return { success: false, action: 'withdraw', vaultAddress, error: 'stSTX token not configured' };
+        return {
+          success: false,
+          action: 'withdraw',
+          vaultAddress,
+          error: 'stSTX token not configured',
+        };
       }
       const balance = await getStacksTokenBalance(serverWalletAddress, 'stSTX');
       if (balance === 0n) {
-        return { success: false, action: 'withdraw', vaultAddress, error: 'No stSTX to withdraw' };
+        return {
+          success: false,
+          action: 'withdraw',
+          vaultAddress,
+          error: 'No stSTX to withdraw',
+        };
       }
-  
+
       const toWithdraw =
         sharesPct >= 100 ? balance : (balance * BigInt(Math.round(sharesPct))) / 100n;
       if (toWithdraw === 0n) {
-        return { success: false, action: 'withdraw', vaultAddress, error: 'Withdraw amount is zero' };
+        return {
+          success: false,
+          action: 'withdraw',
+          vaultAddress,
+          error: 'Withdraw amount is zero',
+        };
       }
-  
+
       const senderKey = deriveStacksServerWalletKey(serverWalletId);
       const { address: contractAddress, name: contractName } = parseContractPrincipal(
         `${STACKING_DAO_ADDRESS}.${STACKING_DAO_CORE}`,
       );
-  
+
       // withdraw-idle (ststx-amount uint, staking-contract principal, commission-contract principal, direct-helpers principal, reserve principal)
       const directHelpers = parseContractPrincipal(`${STACKING_DAO_ADDRESS}.${DIRECT_HELPERS}`);
       const staking = parseContractPrincipal(`${STACKING_DAO_ADDRESS}.${STAKING_CONTRACT}`);
       const commission = parseContractPrincipal(`${STACKING_DAO_ADDRESS}.${COMMISSION_CONTRACT}`);
       const reserve = parseContractPrincipal(`${STACKING_DAO_ADDRESS}.${RESERVE}`);
-  
+
       const { Cl } = await import('@stacks/transactions');
       const tx = await makeContractCall({
         contractAddress,
@@ -307,7 +443,7 @@ import {
         network: getStacksNetwork(),
         postConditionMode: PostConditionMode.Deny,
       });
-  
+
       const response = await broadcastTransaction({ transaction: tx, network: getStacksNetwork() });
       const txId =
         typeof response === 'string'
@@ -315,7 +451,7 @@ import {
           : typeof (response as any).txid === 'string'
             ? (response as any).txid
             : tx.txid();
-  
+
       return {
         success: true,
         txHash: txId,

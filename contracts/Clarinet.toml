@@ -13,8 +13,8 @@ path = 'contracts/RewardToken.clar'
 clarity_version = 4
 epoch = 'latest'
 
-[contracts.alphaclaw]
-path = 'contracts/alphaclaw.clar'
+[contracts.alphaclaw-stake-v2]
+path = 'contracts/alphaclaw-stake-v2.clar'
 clarity_version = 4
 epoch = 'latest'
 
