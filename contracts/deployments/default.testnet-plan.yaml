@@ -9,10 +9,10 @@ plan:
     - id: 0
       transactions:
         - contract-publish:
-            contract-name: "RewardToken"
+            contract-name: "alphaclaw"
             expected-sender: ST1HGXPGWSHPHW3PNC66FWQ5VG1PFNYKBCSCQ7WMJ
             cost: 13424
-            path: contracts/RewardToken.clar
+            path: contracts/alphaclaw.clar
             anchor-block-only: true
             clarity-version: 4
       epoch: "3.3"

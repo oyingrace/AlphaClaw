@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { getAddressFromPrivateKey } from '@stacks/transactions';
+import { STACKS_CONTRACTS } from '@alphaclaw/shared';
 
 function getMasterSecret(): string {
   const secret = process.env.STACKS_AGENT_MASTER_SECRET;
@@ -12,8 +13,7 @@ function getMasterSecret(): string {
 }
 
 function getNetwork(): 'mainnet' | 'testnet' {
-  const network = (process.env.STACKS_NETWORK ?? 'mainnet').toLowerCase();
-  return network === 'testnet' ? 'testnet' : 'mainnet';
+  return STACKS_CONTRACTS.network;
 }
 
 export function deriveStacksServerWalletKey(serverWalletId: string): string {

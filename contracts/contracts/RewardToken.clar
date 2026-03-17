@@ -107,8 +107,18 @@
   (ok u6)
 )
 
-(define-read-only (get-balance (who principal))
-  (ok (default-to u0 (get balance (default-to { balance: u0 } (map-get? balances { account: who })))))
+(define-read-only (get-balance (account principal))
+  (let
+    (
+      (maybe-entry (map-get? balances { account: account }))
+    )
+    (ok
+      (match maybe-entry
+        entry (get balance entry)
+        u0
+      )
+    )
+  )
 )
 
 (define-read-only (get-total-supply)

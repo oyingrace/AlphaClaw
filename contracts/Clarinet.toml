@@ -7,15 +7,17 @@ cache_dir = './.cache'
 
 [[project.requirements]]
 contract_id = 'ST1NXBK3K5YYMD6FD41MVNP3JS1GABZ8TRVX023PT.sip-010-trait-ft-standard'
+
 [contracts.RewardToken]
 path = 'contracts/RewardToken.clar'
 clarity_version = 4
 epoch = 'latest'
 
-[contracts.message-board]
-path = 'contracts/reward-token.clar'
+[contracts.alphaclaw]
+path = 'contracts/alphaclaw.clar'
 clarity_version = 4
 epoch = 'latest'
+
 [repl.analysis]
 passes = ['check_checker']
 
