@@ -25,6 +25,10 @@ function getStacksNetworkFromEnv(): StacksNetworkName {
   return raw === 'testnet' ? 'testnet' : 'mainnet';
 }
 
+// Default testnet AlphaClaw staking contract (Clarinet project: `alpha-claw-stake`).
+const TESTNET_ALPHA_CLAW_STAKING_CONTRACT_ID =
+  'ST1HGXPGWSHPHW3PNC66FWQ5VG1PFNYKBCSCQ7WMJ.alpha-claw-stake';
+
 export const STACKS_CONTRACTS: StacksContractsConfig = {
   network: getStacksNetworkFromEnv(),
   apiUrl:
@@ -36,7 +40,7 @@ export const STACKS_CONTRACTS: StacksContractsConfig = {
   // actual testnet/mainnet contract IDs where the AlphaClaw contracts live.
   stakingContractId:
     env('STACKS_STAKING_CONTRACT_ID') ||
-    '', // e.g. 'ST....alphaclaw'
+    (getStacksNetworkFromEnv() === 'testnet' ? TESTNET_ALPHA_CLAW_STAKING_CONTRACT_ID : ''), // e.g. 'ST....alphaclaw'
   rewardTokenContractId:
     env('STACKS_REWARD_TOKEN_CONTRACT_ID') ||
     '', // e.g. 'ST....RewardToken'

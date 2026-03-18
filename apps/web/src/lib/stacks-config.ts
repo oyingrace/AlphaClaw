@@ -10,6 +10,10 @@ function getBrowserNetwork(): StacksNetworkName {
   return raw === 'testnet' ? 'testnet' : 'mainnet';
 }
 
+// Default testnet AlphaClaw staking contract (Clarinet project: `alpha-claw-stake`).
+const TESTNET_ALPHA_CLAW_STAKING_CONTRACT_ID =
+  'ST1HGXPGWSHPHW3PNC66FWQ5VG1PFNYKBCSCQ7WMJ.alpha-claw-stake';
+
 export const browserStacksConfig: StacksContractsConfig = {
   network: getBrowserNetwork(),
   apiUrl:
@@ -17,7 +21,9 @@ export const browserStacksConfig: StacksContractsConfig = {
     (getBrowserNetwork() === 'testnet'
       ? 'https://api.testnet.hiro.so'
       : 'https://api.hiro.so'),
-  stakingContractId: getEnv('NEXT_PUBLIC_STACKS_STAKING_CONTRACT_ID'),
+  stakingContractId:
+    getEnv('NEXT_PUBLIC_STACKS_STAKING_CONTRACT_ID') ||
+    (getBrowserNetwork() === 'testnet' ? TESTNET_ALPHA_CLAW_STAKING_CONTRACT_ID : ''),
   rewardTokenContractId: getEnv('NEXT_PUBLIC_STACKS_REWARD_TOKEN_CONTRACT_ID'),
 };
 

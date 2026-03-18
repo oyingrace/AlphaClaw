@@ -9,10 +9,10 @@ plan:
     - id: 0
       transactions:
         - contract-publish:
-            contract-name: "alphaclaw-stake-v2"
+            contract-name: alpha-claw-stake
             expected-sender: ST1HGXPGWSHPHW3PNC66FWQ5VG1PFNYKBCSCQ7WMJ
-            cost: 13424
-            path: contracts/alphaclaw-stake-v2.clar
+            cost: 51910
+            path: contracts/alpha-claw-stake.clar
             anchor-block-only: true
             clarity-version: 4
       epoch: "3.3"

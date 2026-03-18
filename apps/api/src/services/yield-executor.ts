@@ -43,7 +43,7 @@ function parseContractPrincipal(principal: string): { address: string; name: str
  */
 function isStstxVault(vaultAddress: string): boolean {
   // On testnet, we do not require the stSTX vault – we always route to the
-  // configured AlphaClaw staking contract + RewardToken instead.
+  // configured AlphaClaw staking contract instead.
   if (STACKS_CONTRACTS.network === 'testnet') {
     return true;
   }
@@ -150,7 +150,7 @@ function isStstxVault(vaultAddress: string): boolean {
 
       // Network-dependent routing:
       // - mainnet: use Stacking DAO stSTX vault (existing behavior)
-      // - testnet: use AlphaClaw demo staking contract + RewardToken
+      // - testnet: use AlphaClaw demo staking contract
       let tx;
       if (STACKS_CONTRACTS.network === 'testnet') {
         const stakingId = STACKS_CONTRACTS.stakingContractId;

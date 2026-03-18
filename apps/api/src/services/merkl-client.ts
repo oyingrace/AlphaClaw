@@ -30,7 +30,8 @@ export async function fetchYieldOpportunities(): Promise<YieldOpportunity[]> {
 /**
  * Claimable rewards API for Stacks-only mode.
  * - Mainnet: currently returns an empty list (no Merkl integration).
- * - Testnet: reads pending rewards from AlphaClaw staking contract + RewardToken.
+ * - Testnet: optional. If RewardToken config is not present (or rewards are disabled),
+ *   this endpoint returns an empty list.
  */
 export async function fetchClaimableRewards(
   walletAddress: string,

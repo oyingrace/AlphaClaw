@@ -1,4 +1,4 @@
-;; AlphaClaw testnet staking demo
+;; AlphaClaw testnet staking demo (v5)
 ;; Stake testnet STX and earn a simple APR in a reward token
 
 ;; -----------------------------
@@ -9,7 +9,8 @@
 ;; https://explorer.stacks.co/txid/ST1NXBK3K5YYMD6FD41MVNP3JS1GABZ8TRVX023PT.sip-010-trait-ft-standard?chain=testnet
 (use-trait sip010-ft-trait 'ST1NXBK3K5YYMD6FD41MVNP3JS1GABZ8TRVX023PT.sip-010-trait-ft-standard.sip-010-trait)
 
-;; The principal of the local reward token contract (simnet).
+;; The principal of the local reward token contract (simnet / testnet).
+;; On testnet this resolves to ST1HGXPGWSHPHW3PNC66FWQ5VG1PFNYKBCSCQ7WMJ.RewardToken
 (define-constant REWARD-TOKEN .RewardToken)
 
 ;; Annual percentage rate expressed in basis points (1% = 100 bp)
@@ -21,6 +22,9 @@
 
 ;; Scaling factor to preserve precision in reward calculations
 (define-constant SCALE u1000000)
+
+;; Percentage of stake to return on unstake (e.g. 95 = 95%)
+(define-constant UNSTAKE_PCT u95)
 
 ;; -----------------------------
 ;; DATA
@@ -53,9 +57,9 @@
 )
 
 (define-read-only (now)
-  ;; Simple demo: use a constant time basis so the contract compiles
-  ;; cleanly in environments where block-time helpers are unavailable.
-  u0
+  ;; Clarity 4: approximate wall-clock time using stacks-block-height.
+  ;; Each burn block is treated as ~600 seconds for reward accrual.
+  (* stacks-block-height u600)
 )
 
 ;; Calculate rewards for a given stake amount and last-claim timestamp.
@@ -87,6 +91,46 @@
   REWARD-TOKEN
 )
 
+;; Helper: compute 95% of an amount (integer division).
+(define-read-only (unstake-amount (amount uint))
+  (/ (* amount UNSTAKE_PCT) u100)
+)
+
+;; Debug helper: inspect whether an unstake would succeed for a given user.
+;; This is read-only and does not modify any state.
+(define-read-only (debug-unstake (user principal))
+  (let (
+        (position (map-get? stakes { staker: user }))
+       )
+    (match position
+      position-data
+      (let (
+            (amount (get amount position-data))
+            (last-claim (get last-claim position-data))
+            (current-time (now))
+            (rewards (calculate-rewards amount last-claim))
+            (amount-to-return (unstake-amount amount))
+            (contract-balance (stx-get-balance current-contract))
+            (total-staked-val (var-get total-staked))
+            (can-pay? (>= contract-balance amount-to-return))
+           )
+        (ok {
+          user: user,
+          amount: amount,
+          last-claim: last-claim,
+          now: current-time,
+          rewards: rewards,
+          amount-to-return: amount-to-return,
+          contract-balance: contract-balance,
+          total-staked: total-staked-val,
+          can-pay: can-pay?
+        })
+      )
+      (err u103)
+    )
+  )
+)
+
 ;; -----------------------------
 ;; PUBLIC FUNCTIONS
 ;; -----------------------------
@@ -97,10 +141,9 @@
 (define-public (stake (amount uint))
   (begin
     (asserts! (> amount u0) (err u100))
-    ;; Move STX from the user (tx-sender) into the contract's balance by
-    ;; transferring to this contract's principal.
+    ;; Move STX from the user (tx-sender) into this contract's balance.
     (asserts!
-      (is-ok (stx-transfer? amount tx-sender 'ST1HGXPGWSHPHW3PNC66FWQ5VG1PFNYKBCSCQ7WMJ.alphaclaw-stake-v2))
+      (is-ok (stx-transfer? amount tx-sender current-contract))
       (err u200))
     (let
       (
@@ -131,7 +174,7 @@
   )
 )
 
-;; Unstake full amount and claim any pending rewards.
+;; Unstake and claim any pending rewards, returning 95% of the staked amount.
 (define-public (unstake)
   (let
     (
@@ -144,27 +187,29 @@
           (amount (get amount position-data))
           (last-claim (get last-claim position-data))
           (rewards (calculate-rewards amount last-claim))
+          (amount-to-return (unstake-amount amount))
         )
         (begin
           ;; Remove stake
           (map-delete stakes { staker: tx-sender })
           (var-set total-staked (- (var-get total-staked) amount))
 
-          ;; Return staked STX from this contract back to the user.
-          (asserts!
-            (is-ok
-              (stx-transfer? amount 'ST1HGXPGWSHPHW3PNC66FWQ5VG1PFNYKBCSCQ7WMJ.alphaclaw-stake tx-sender))
-            (err u200))
-
-          ;; Mint / transfer rewards
-          (if (> rewards u0)
-              (begin
-                (asserts!
-                  (is-ok (contract-call? REWARD-TOKEN transfer rewards tx-sender tx-sender none))
-                  (err u201))
-                (ok { unstaked: amount, rewards: rewards })
+          ;; Return a percentage of staked STX from this contract back to the user.
+          (match (stx-transfer? amount-to-return current-contract tx-sender)
+            transfer-ok
+              ;; Mint / transfer rewards
+              (if (> rewards u0)
+                  (begin
+                    (asserts!
+                      (is-ok (contract-call? REWARD-TOKEN mint tx-sender rewards))
+                      (err u201))
+                    (ok { unstaked: amount-to-return, rewards: rewards })
+                  )
+                  (ok { unstaked: amount-to-return, rewards: u0 })
               )
-              (ok { unstaked: amount, rewards: u0 })
+            transfer-err
+              ;; Surface the underlying STX error (e.g. u1-u4) instead of masking as u200
+              (err transfer-err)
           )
         )
       )
@@ -202,7 +247,7 @@
 
           ;; Mint / transfer rewards
           (asserts!
-            (is-ok (contract-call? REWARD-TOKEN transfer rewards tx-sender tx-sender none))
+            (is-ok (contract-call? REWARD-TOKEN mint tx-sender rewards))
             (err u201))
 
           (ok rewards)
