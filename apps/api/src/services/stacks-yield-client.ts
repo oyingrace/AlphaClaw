@@ -93,7 +93,7 @@ export async function fetchStacksYieldOpportunities(): Promise<YieldOpportunity[
   ];
 
   // Testnet: add AlphaClaw staking opportunity so position cards get APR/TVL/daily rewards (demo values).
-  /* if (STACKS_CONTRACTS.network === 'testnet' && STACKS_CONTRACTS.stakingContractId) {
+  if (STACKS_CONTRACTS.network === 'testnet' && STACKS_CONTRACTS.stakingContractId) {
     opportunities.push({
       id: 'alphaclaw-staking-testnet',
       name: 'Native STX Stacking',
@@ -110,7 +110,7 @@ export async function fetchStacksYieldOpportunities(): Promise<YieldOpportunity[
       type: 'staking',
       merklUrl: undefined,
     });
-  } */
+  }
 
   // Keep highest APR first, limit to top 5
   return opportunities.sort((a, b) => b.apr - a.apr).slice(0, 5);

@@ -19,6 +19,9 @@ import {
 	fetchClaimableRewards,
 	fetchYieldOpportunities,
 } from "../services/merkl-client.js";
+import { STACKS_CONTRACTS } from "@alphaclaw/shared";
+import { getStakingContractStake } from "../lib/stacks-read.js";
+import { getTokenPriceUsd } from "../services/price-service.js";
 import { executeYieldWithdraw } from "../services/yield-executor.js";
 import {
 	clearYieldPositionAfterWithdraw,
@@ -111,9 +114,12 @@ export async function yieldAgentRoutes(app: FastifyInstance) {
 					.send({ error: "Failed to fetch yield positions" });
 			}
 
-			// Enrich positions with current USD value using on-chain balances
+			// Enrich positions with current USD value.
+			// - For most vaults: use on-chain wallet balances (token value).
+			// - For testnet AlphaClaw staking: use staking contract state (staked STX * price).
 			const valueByTokenAddress = new Map<string, number>();
 			const valueByTokenSymbol = new Map<string, number>();
+			let testnetStakingValueUsd: number | null = null;
 			try {
 				const { data: configData } = await supabaseAdmin
 					.from("agent_configs")
@@ -132,6 +138,16 @@ export async function yieldAgentRoutes(app: FastifyInstance) {
 							valueByTokenSymbol.set(b.symbol.toUpperCase(), b.value_usd);
 						}
 					}
+
+					// Testnet AlphaClaw staking: derive value from staking contract state, not wallet STX balance.
+					if (STACKS_CONTRACTS.network === "testnet" && STACKS_CONTRACTS.stakingContractId) {
+						const { amount } = await getStakingContractStake(serverWalletAddress);
+						if (amount > 0n) {
+							const stxPrice = await getTokenPriceUsd("STX");
+							testnetStakingValueUsd =
+								(Number(amount) / 10 ** 6) * (Number.isFinite(stxPrice) && stxPrice > 0 ? stxPrice : 0);
+						}
+					}
 				}
 			} catch {
 				// If enrichment fails, we still return base positions; currentValueUsd will just be undefined.
@@ -141,11 +157,25 @@ export async function yieldAgentRoutes(app: FastifyInstance) {
 				positions: (data ?? []).map((p: Record<string, unknown>) => {
 					const depositToken = (p.deposit_token as string | undefined) ?? "";
 					const depositTokenAddress = depositToken;
-					// Try to match by exact token address first, then by symbol (e.g. stSTX).
-					const currentValueUsd =
-						valueByTokenAddress.get(depositTokenAddress.toLowerCase()) ??
-						valueByTokenSymbol.get(depositToken.toUpperCase()) ??
-						null;
+
+					// Testnet AlphaClaw staking position: use staking contract-derived value, avoid double-counting wallet STX.
+					const vaultAddress = (p.vault_address as string | undefined) ?? "";
+					const isTestnetStakingVault =
+						STACKS_CONTRACTS.network === "testnet" &&
+						STACKS_CONTRACTS.stakingContractId &&
+						vaultAddress.toLowerCase() === STACKS_CONTRACTS.stakingContractId.toLowerCase();
+
+					let currentValueUsd: number | null;
+					if (isTestnetStakingVault && testnetStakingValueUsd != null) {
+						currentValueUsd = testnetStakingValueUsd;
+					} else {
+						// Default path: derive from wallet token balances.
+						// Try to match by exact token address first, then by symbol (e.g. stSTX).
+						currentValueUsd =
+							valueByTokenAddress.get(depositTokenAddress.toLowerCase()) ??
+							valueByTokenSymbol.get(depositToken.toUpperCase()) ??
+							null;
+					}
 
 					return {
 						id: p.id,
