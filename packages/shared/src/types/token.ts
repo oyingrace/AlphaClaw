@@ -39,7 +39,7 @@ export const TOKEN_METADATA: Record<
   USDCx: { name: 'USDC on Stacks', decimals: 6 },
   sBTC: { name: 'sBTC on Stacks', decimals: 8 },
   stSTX: { name: 'stSTX on Stacks', decimals: 6 },
-  STX: { name: 'Stacks', decimals: 6 },
+  STX: { name: 'Stacks', decimals: 6, logo: '/protocols/stacks.png' },
 };
 
 export function getTokenDecimals(symbol: string): number {

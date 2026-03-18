@@ -1,0 +1,18 @@
+---
+id: 0
+name: Testnet deployment
+network: testnet
+stacks-node: "https://api.testnet.hiro.so"
+bitcoin-node: "http://blockstack:blockstacksystem@bitcoind.testnet.stacks.co:18332"
+plan:
+  batches:
+    - id: 0
+      transactions:
+        - contract-publish:
+            contract-name: alpha-claw-swap
+            expected-sender: ST1HGXPGWSHPHW3PNC66FWQ5VG1PFNYKBCSCQ7WMJ
+            cost: 18020
+            path: contracts/alpha-claw-swap.clar
+            anchor-block-only: true
+            clarity-version: 4
+      epoch: "3.3"

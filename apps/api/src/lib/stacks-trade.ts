@@ -3,6 +3,7 @@
  */
 
 import { createNetwork } from '@stacks/network';
+import { STACKS_CONTRACTS } from '@alphaclaw/shared';
 import { getStxBalance, getFtBalance, getStacksBalances } from './stacks-client.js';
 import { getTokenAddress, getTokenDecimals } from '@alphaclaw/shared';
 import {
@@ -18,15 +19,13 @@ function getApiBase(): string {
   return (
     process.env.STACKS_API_URL ??
     process.env.HIRO_API_URL ??
-    (process.env.STACKS_NETWORK?.toLowerCase() === 'testnet'
-      ? DEFAULT_TESTNET_URL
-      : DEFAULT_MAINNET_URL)
+    (STACKS_CONTRACTS.network === 'testnet' ? DEFAULT_TESTNET_URL : DEFAULT_MAINNET_URL)
   );
 }
 
 /** Network config for @stacks/transactions (mainnet or testnet with optional custom URL). */
 export function getStacksNetwork(): ReturnType<typeof createNetwork> {
-  const isTestnet = (process.env.STACKS_NETWORK ?? 'mainnet').toLowerCase() === 'testnet';
+  const isTestnet = STACKS_CONTRACTS.network === 'testnet';
   const baseUrl = getApiBase();
   return createNetwork({
     network: isTestnet ? 'testnet' : 'mainnet',

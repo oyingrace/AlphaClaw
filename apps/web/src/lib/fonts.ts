@@ -1,22 +1,7 @@
-import { Barlow, JetBrains_Mono, DM_Sans } from 'next/font/google';
+// Shared font CSS variable names, kept here so other modules
+// can reference them without importing `next/font`.
 
-export const barlow = Barlow({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-barlow',
-  weight: ['400', '500', '600', '700'],
-});
+export const BARLOW_VAR = '--font-barlow';
+export const JETBRAINS_MONO_VAR = '--font-jetbrains-mono';
+export const DM_SANS_VAR = '--font-dm-sans';
 
-export const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-jetbrains-mono',
-  weight: ['400', '500', '700'],
-});
-
-export const dmSans = DM_Sans({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-dm-sans',
-  weight: ['400', '500', '700'],
-});

@@ -1,5 +1,5 @@
 import type { GuardrailCheck } from '@alphaclaw/shared';
-import { STACKS_TOKENS, DEFAULT_GUARDRAILS } from '@alphaclaw/shared';
+import { STACKS_CONTRACTS, STACKS_TOKENS, DEFAULT_GUARDRAILS } from '@alphaclaw/shared';
 import { fetchFxNews } from '../news-fetcher.js';
 import { analyzeFxNews } from '../llm-analyzer.js';
 import { executeTrade } from '../trade-executor.js';
@@ -31,12 +31,18 @@ interface FxData {
 export class FxStrategy implements AgentStrategy {
   type = 'fx' as const;
 
-  async fetchData(config: AgentConfigRow, _context: StrategyContext): Promise<FxData> {
+  private getAllowedCurrencies(config: AgentConfigRow): string[] {
+    // Demo mode on testnet: only trade USDCx <-> STX.
+    if (STACKS_CONTRACTS.network === 'testnet') return ['STX'];
+
     const rawAllowed = (config.allowed_currencies ?? []) as string[];
-    const allowedCurrencies =
-      rawAllowed.length === 0 || rawAllowed.includes('ALL')
-        ? STACKS_TOKENS.filter((t) => t !== 'USDCx')
-        : rawAllowed;
+    return rawAllowed.length === 0 || rawAllowed.includes('ALL')
+      ? STACKS_TOKENS.filter((t) => t !== 'USDCx')
+      : rawAllowed;
+  }
+
+  async fetchData(config: AgentConfigRow, _context: StrategyContext): Promise<FxData> {
+    const allowedCurrencies = this.getAllowedCurrencies(config);
     const currencies = allowedCurrencies.length > 0 ? [...allowedCurrencies] : ['sBTC', 'STX'];
 
     const news = await fetchFxNews(currencies);
@@ -54,11 +60,7 @@ export class FxStrategy implements AgentStrategy {
       return { signals: [], summary: 'No news articles found', sourcesUsed: 0 };
     }
 
-    const rawAllowed = (config.allowed_currencies ?? []) as string[];
-    const allowedCurrencies =
-      rawAllowed.length === 0 || rawAllowed.includes('ALL')
-        ? STACKS_TOKENS.filter((t) => t !== 'USDCx')
-        : rawAllowed;
+    const allowedCurrencies = this.getAllowedCurrencies(config);
 
     const result = await analyzeFxNews({
       news,
@@ -110,11 +112,16 @@ export class FxStrategy implements AgentStrategy {
   ): GuardrailCheck {
     const s = signal as FxSignal & { amountUsd: number };
 
-    const rawAllowed = (config.allowed_currencies ?? []) as string[];
-    const allowedCurrencies =
-      rawAllowed.length === 0 || rawAllowed.includes('ALL')
-        ? STACKS_TOKENS.filter((t) => t !== 'USDCx')
-        : rawAllowed;
+    // Demo-only on testnet: swap contract currently supports BUY only (USDCx -> STX).
+    if (STACKS_CONTRACTS.network === 'testnet' && s.direction === 'sell') {
+      return {
+        passed: false,
+        blockedReason: 'Testnet demo only supports buys (USDCx -> STX)',
+        ruleName: 'demo_sell_disabled',
+      };
+    }
+
+    const allowedCurrencies = this.getAllowedCurrencies(config);
 
     const defaults = DEFAULT_GUARDRAILS.moderate;
     return checkGuardrails({
