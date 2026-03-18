@@ -7,6 +7,8 @@ export const PROTOCOL_LOGOS: Record<string, string> = {
   ichi: '/protocols/ichi.avif',
   steer: '/protocols/steer.webp',
   merkl: '/protocols/merkl.svg',
+  'stacks consensus': '/protocols/stacks.png',
+  'alphaclaw staking': '/protocols/stacks.png',
 };
 
 export function getProtocolLogo(protocol: string): string | undefined {

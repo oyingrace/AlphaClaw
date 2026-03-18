@@ -1,4 +1,5 @@
 import type { YieldOpportunity } from '@alphaclaw/shared';
+import { STACKS_CONTRACTS } from '@alphaclaw/shared';
 
 /**
  * Approximate daily $ yield for the whole pool from APR and TVL (for display).
@@ -7,6 +8,13 @@ import type { YieldOpportunity } from '@alphaclaw/shared';
 function dailyRewardsFromApr(apr: number, tvl: number): number {
   return (apr / 100) * tvl / 365;
 }
+
+/** Demo values for testnet AlphaClaw staking (same as mainnet Native STX Stacking for display). */
+const NATIVE_STX_DEMO = {
+  apr: 6.0,
+  tvl: 50_000_000,
+  dailyRewards: dailyRewardsFromApr(6, 50_000_000), // ~8219.18
+};
 
 /**
  * Static Stacks yield opportunities for the Stacks-port v1.
@@ -83,6 +91,26 @@ export async function fetchStacksYieldOpportunities(): Promise<YieldOpportunity[
       merklUrl: undefined,
     },
   ];
+
+  // Testnet: add AlphaClaw staking opportunity so position cards get APR/TVL/daily rewards (demo values).
+  /* if (STACKS_CONTRACTS.network === 'testnet' && STACKS_CONTRACTS.stakingContractId) {
+    opportunities.push({
+      id: 'alphaclaw-staking-testnet',
+      name: 'Native STX Stacking',
+      vaultAddress: STACKS_CONTRACTS.stakingContractId,
+      protocol: 'Stacks Consensus',
+      status: 'LIVE',
+      apr: NATIVE_STX_DEMO.apr,
+      tvl: NATIVE_STX_DEMO.tvl,
+      dailyRewards: NATIVE_STX_DEMO.dailyRewards,
+      tokens: [
+        { symbol: 'STX', address: 'STX', decimals: 6 },
+      ],
+      depositUrl: 'https://explorer.hiro.so',
+      type: 'staking',
+      merklUrl: undefined,
+    });
+  } */
 
   // Keep highest APR first, limit to top 5
   return opportunities.sort((a, b) => b.apr - a.apr).slice(0, 5);
