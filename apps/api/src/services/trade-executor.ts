@@ -4,7 +4,7 @@
  */
 
 import { parseUnits, formatUnits } from 'viem';
-import { getTokenAddress, getTokenDecimals } from '@alphaclaw/shared';
+import { getTokenAddress, getTokenDecimals, STACKS_CONTRACTS } from '@alphaclaw/shared';
 import {
   getStacksQuote,
   getStacksTokenBalance,
@@ -24,8 +24,24 @@ import {
   standardPrincipalCV,
 } from '@stacks/transactions';
 import { deriveStacksServerWalletKey } from '../lib/stacks-server-wallet.js';
+import { getTokenPriceUsd } from './price-service.js';
 
 const DEFAULT_SLIPPAGE_PCT = 0.5;
+
+const DEFAULT_TEST_SWAP_CONTRACT_ID =
+  'ST1HGXPGWSHPHW3PNC66FWQ5VG1PFNYKBCSCQ7WMJ.alpha-claw-swap';
+
+function parseContractPrincipal(principal: string): { address: string; name: string } {
+  const [address, name] = principal.split('.');
+  if (!address || !name) {
+    throw new Error(`Invalid contract principal: ${principal}`);
+  }
+  return { address, name };
+}
+
+function getTestSwapContractId(): string {
+  return process.env.STACKS_TEST_SWAP_CONTRACT_ID ?? DEFAULT_TEST_SWAP_CONTRACT_ID;
+}
 
 // #region agent log
 function _dbg(id: string, msg: string, data: Record<string, unknown>) {
@@ -96,7 +112,13 @@ export async function executeTrade(params: {
     tokenInSymbol = currency;
     tokenOutSymbol = STACKS_BASE_STABLE;
     const decimals = getTokenDecimals(currency);
-    amountIn = parseUnits(amountUsd.toString(), decimals);
+    // amountUsd is USD value for sells; convert using token price.
+    const priceUsd = await getTokenPriceUsd(currency);
+    if (!priceUsd || !Number.isFinite(priceUsd) || priceUsd <= 0) {
+      throw new Error(`Invalid price for ${currency}: ${String(priceUsd)}`);
+    }
+    const amountInHuman = amountUsd / priceUsd;
+    amountIn = parseUnits(amountInHuman.toString(), decimals);
     const balance = await getStacksTokenBalance(serverWalletAddress, currency);
     if (balance < amountIn) {
       throw new Error(
@@ -114,6 +136,66 @@ export async function executeTrade(params: {
         `Insufficient ${STACKS_BASE_STABLE} balance: have ${formatUnits(balance, decimals)}, need ~$${amountUsd}`,
       );
     }
+  }
+
+  // Testnet demo: route USDCx <-> STX through our small swap contract (no ALEX dependency).
+  if (
+    STACKS_CONTRACTS.network === 'testnet' &&
+    (tokenInSymbol === 'USDCx' || tokenInSymbol === 'STX') &&
+    (tokenOutSymbol === 'STX' || tokenOutSymbol === 'USDCx')
+  ) {
+    const swapContractId = getTestSwapContractId();
+    const swap = parseContractPrincipal(swapContractId);
+    const senderKey = deriveStacksServerWalletKey(serverWalletId);
+    const network = getStacksNetwork();
+
+    const STX_DECIMALS = getTokenDecimals('STX');
+    const USDCX_DECIMALS = getTokenDecimals('USDCx');
+
+    if (direction === 'buy' && tokenInSymbol === 'USDCx' && tokenOutSymbol === 'STX') {
+      const stxPriceUsd = await getTokenPriceUsd('STX');
+      if (!stxPriceUsd || !Number.isFinite(stxPriceUsd) || stxPriceUsd <= 0) {
+        throw new Error(`Invalid STX price: ${String(stxPriceUsd)}`);
+      }
+
+      const stxAmountOutHuman = amountUsd / stxPriceUsd;
+      const stxAmountOut = parseUnits(stxAmountOutHuman.toString(), STX_DECIMALS);
+
+      // Transfer input USDCx into the swap contract.
+      await sendTokens({
+        serverWalletId,
+        serverWalletAddress,
+        token: 'USDCx',
+        amount: formatUnits(amountIn, USDCX_DECIMALS),
+        recipient: swapContractId,
+      });
+
+      // Execute swap: contract sends STX back to tx-sender.
+      const tx = await makeContractCall({
+        contractAddress: swap.address,
+        contractName: swap.name,
+        functionName: 'swap-usdcx-to-stx',
+        functionArgs: [uintCV(amountIn), uintCV(stxAmountOut)],
+        senderKey,
+        network,
+        postConditionMode: PostConditionMode.Allow,
+      });
+
+      const response = await broadcastTransaction({ transaction: tx, network });
+      const txId =
+        typeof response === 'string'
+          ? response
+          : typeof (response as any)?.txid === 'string'
+            ? (response as any).txid
+            : tx.txid();
+
+      return { txHash: txId, amountIn, amountOut: stxAmountOut, rate: stxPriceUsd };
+    }
+
+    // Demo mode supports BUY only (USDCx -> STX). Sells would require swap-stx-to-usdcx.
+    throw new Error(
+      `Testnet demo swap only supports buy: USDCx -> STX (got ${direction} ${tokenInSymbol} -> ${tokenOutSymbol})`,
+    );
   }
 
   const quote = await getStacksQuote({

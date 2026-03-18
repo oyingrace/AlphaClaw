@@ -68,6 +68,7 @@ export async function fetchClaimableRewards(
       amount: humanStr,
       claimed: '0',
       pending: humanStr,
+      proofs: [],
       claimableAmount: humanStr,
       claimableValueUsd: 0,
     };
