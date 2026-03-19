@@ -4,6 +4,7 @@ import { fetchFxNews } from '../news-fetcher.js';
 import { analyzeFxNews } from '../llm-analyzer.js';
 import { executeTrade } from '../trade-executor.js';
 import { checkGuardrails, calculateTradeAmount } from '../rules-engine.js';
+import { updatePositionAfterTrade } from '../position-tracker.js';
 import type {
   AgentStrategy,
   AgentConfigRow,
@@ -96,6 +97,15 @@ export class FxStrategy implements AgentStrategy {
       currency: s.currency,
       direction: s.direction as 'buy' | 'sell',
       amountUsd: s.amountUsd,
+    });
+
+    // Persist FX positions so allocation/stop-loss logic and dashboard positions are meaningful.
+    await updatePositionAfterTrade({
+      walletAddress: config.wallet_address,
+      currency: s.currency,
+      direction: s.direction as 'buy' | 'sell',
+      amountUsd: s.amountUsd,
+      rate: result.rate,
     });
 
     return {
