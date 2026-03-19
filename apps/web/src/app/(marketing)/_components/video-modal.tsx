@@ -30,7 +30,7 @@ export function VideoModal({ trigger }: VideoModalProps) {
           <div className="relative w-full pt-[56.25%]">
             <iframe
               className="absolute inset-0 h-full w-full"
-              src="https://player.vimeo.com/video/1165647906?transparent=0"
+              src="https://youtu.be/SQpqm5-zCcA?si=8ZLqDPHWe5aTj9Fb"
               title="What is AlphaClaw?"
               loading="lazy"
               allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media"
