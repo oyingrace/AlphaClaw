@@ -313,19 +313,8 @@ export async function runAgentCycle(config: AgentConfigRow): Promise<void> {
       if (agentType === 'fx' && (!s.amountUsd || s.amountUsd <= 0)) continue;
 
       // Option D: Cap buy amount by available balance (avoid "Insufficient balance" at execution).
-      // Skip trades below a $4 minimum so tiny balances don't just churn fees.
       if (agentType === 'fx' && signalAction === 'buy' && availableBuyingPowerUsd > 0) {
         const capped = Math.min(s.amountUsd, availableBuyingPowerUsd);
-        if (capped < 4) {
-          emitProgress(
-            walletAddress,
-            executeStep,
-            `Skipping ${signalLabel}: available buying power ($${availableBuyingPowerUsd.toFixed(
-              2,
-            )}) is below the $4 minimum trade size`,
-          );
-          continue;
-        }
         s.amountUsd = capped;
       }
 

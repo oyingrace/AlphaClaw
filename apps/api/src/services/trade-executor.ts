@@ -189,7 +189,10 @@ export async function executeTrade(params: {
             ? (response as any).txid
             : tx.txid();
 
-      return { txHash: txId, amountIn, amountOut: stxAmountOut, rate: stxPriceUsd };
+      // Persist a tokens-per-USD style rate for position tracking.
+      // For USDCx buys, 1 USDCx ≈ $1, so STX-per-USD is the right unit.
+      const stxPerUsd = 1 / stxPriceUsd;
+      return { txHash: txId, amountIn, amountOut: stxAmountOut, rate: stxPerUsd };
     }
 
     // Demo mode supports BUY only (USDCx -> STX). Sells would require swap-stx-to-usdcx.

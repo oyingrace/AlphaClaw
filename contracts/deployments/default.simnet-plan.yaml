@@ -64,8 +64,13 @@ plan:
     - id: 0
       transactions:
         - emulated-contract-publish:
-            contract-name: alpha-claw-swap
+            contract-name: alpha-claw-stake
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: contracts/alpha-claw-swap.clar
+            path: contracts/alpha-claw-stake.clar
+            clarity-version: 4
+        - emulated-contract-publish:
+            contract-name: alpha-claw-test-swap
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: contracts/alpha-claw-test-swap.clar
             clarity-version: 4
       epoch: "3.3"

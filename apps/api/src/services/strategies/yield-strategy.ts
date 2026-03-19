@@ -1,5 +1,6 @@
 import type { GuardrailCheck } from '@alphaclaw/shared';
 import type { YieldOpportunity, YieldSignal, YieldGuardrails } from '@alphaclaw/shared';
+import { STACKS_CONTRACTS } from '@alphaclaw/shared';
 import { fetchYieldOpportunities, fetchClaimableRewards } from '../merkl-client.js';
 import { analyzeYieldOpportunities } from '../yield-analyzer.js';
 import { executeYieldDeposit, executeYieldWithdraw } from '../yield-executor.js';
@@ -70,12 +71,26 @@ export class YieldStrategy implements AgentStrategy {
     const { opportunities } = data as YieldData;
     const guardrails = getGuardrails(config);
 
-    // Short-term: only consider stSTX liquid staking vaults, which the executor
-    // fully supports today. This avoids generating signals for native stacking
-    // or other vault types that would fail at execution time.
+    // Short-term: filter opportunities to only the vaults the executor can
+    // actually handle.
+    //
+    // Mainnet: executor supports stSTX liquid staking vaults.
+    // Testnet: executor routes all staking deposits/withdrawals to the
+    // configured AlphaClaw staking contract, so signals must target that
+    // canonical vault address (stakingContractId).
     const filtered = opportunities
       .filter((o) => o.tvl >= guardrails.minTvlUsd)
-      .filter((o) => o.depositTokenSymbol === 'stSTX');
+      .filter((o) => {
+        if (STACKS_CONTRACTS.network === 'testnet') {
+          if (!STACKS_CONTRACTS.stakingContractId) return false;
+          return (
+            o.vaultAddress.toLowerCase() ===
+            STACKS_CONTRACTS.stakingContractId.toLowerCase()
+          );
+        }
+
+        return o.depositTokenSymbol === 'stSTX';
+      });
 
     const result = await analyzeYieldOpportunities({
       opportunities: filtered,
