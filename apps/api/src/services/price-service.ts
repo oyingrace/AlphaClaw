@@ -15,6 +15,7 @@ export async function fetchAllPrices(): Promise<Map<string, number>> {
   results.set('USDCx', 1);
 
   // STX, stSTX and sBTC from Coingecko
+  let coingeckoOk = true;
   try {
     const res = await fetch(
       'https://api.coingecko.com/api/v3/simple/price?ids=blockstack,stacking-dao,bitcoin&vs_currencies=usd',
@@ -35,7 +36,30 @@ export async function fetchAllPrices(): Promise<Map<string, number>> {
     }
     if (typeof data.bitcoin?.usd === 'number') results.set('sBTC', data.bitcoin.usd);
   } catch (err) {
-    console.warn('Coingecko price fetch failed, using last known:', err);
+    coingeckoOk = false;
+    console.warn('Coingecko price fetch failed, using fallbacks/last known:', err);
+  }
+
+  // If Coingecko is unavailable and we don't have any cached values yet,
+  // populate conservative non-zero defaults so the UI doesn't show $0.00.
+  if (!coingeckoOk) {
+    if (!results.has('STX') && lastKnownPrices.has('STX')) {
+      results.set('STX', lastKnownPrices.get('STX')!);
+    } else if (!results.has('STX')) {
+      results.set('STX', 1); // fallback heuristic
+    }
+
+    if (!results.has('stSTX') && lastKnownPrices.has('stSTX')) {
+      results.set('stSTX', lastKnownPrices.get('stSTX')!);
+    } else if (!results.has('stSTX')) {
+      results.set('stSTX', 1); // approximate STX when unknown
+    }
+
+    if (!results.has('sBTC') && lastKnownPrices.has('sBTC')) {
+      results.set('sBTC', lastKnownPrices.get('sBTC')!);
+    } else if (!results.has('sBTC')) {
+      results.set('sBTC', 30000); // rough BTC-denominated fallback
+    }
   }
 
   // Fallback to last known

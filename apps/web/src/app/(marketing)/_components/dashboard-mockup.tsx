@@ -17,10 +17,11 @@ export function DashboardMockup() {
             <div className="relative w-full pt-[56.25%]">
               <iframe
                 className="absolute inset-0 h-full w-full"
-                src="https://player.vimeo.com/video/1165647906?transparent=0"
+                src="https://www.youtube.com/embed/SQpqm5-zCcA?rel=0"
                 title="What is AlphaClaw?"
                 loading="lazy"
-                allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
                 allowFullScreen
               />
             </div>
