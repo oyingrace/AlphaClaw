@@ -9,6 +9,9 @@ export const PROTOCOL_LOGOS: Record<string, string> = {
   merkl: '/protocols/merkl.svg',
   'stacks consensus': '/protocols/stacks.png',
   'alphaclaw staking': '/protocols/stacks.png',
+  'liquid staking': '/protocols/ststx.png',
+  'stacking dao': '/protocols/ststx.png',
+  'stacks defi': '/protocols/stacks.png',
 };
 
 export function getProtocolLogo(protocol: string): string | undefined {

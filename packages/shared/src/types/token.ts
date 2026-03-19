@@ -36,9 +36,21 @@ export const TOKEN_METADATA: Record<
   string,
   { name: string; decimals: number; logo?: string; flag?: string }
 > = {
-  USDCx: { name: 'USDC on Stacks', decimals: 6 },
-  sBTC: { name: 'sBTC on Stacks', decimals: 8 },
-  stSTX: { name: 'stSTX on Stacks', decimals: 6 },
+  USDCx: {
+    name: 'USDC on Stacks',
+    decimals: 6,
+    logo: '/protocols/usdcx.png',
+  },
+  sBTC: {
+    name: 'sBTC on Stacks',
+    decimals: 8,
+    logo: '/protocols/sbtc.png',
+  },
+  stSTX: {
+    name: 'stSTX on Stacks',
+    decimals: 6,
+    logo: '/protocols/ststx.png',
+  },
   STX: { name: 'Stacks', decimals: 6, logo: '/protocols/stacks.png' },
 };
 
