@@ -7,6 +7,7 @@
 <p align="center">
   <a href="#quick-start">Quick Start</a> •
   <a href="#agents">Agents</a> •
+  <a href="#mainnet-vs-testnet">Mainnet vs testnet</a> •
   <a href="#architecture">Architecture</a> •
   <a href="#stack">Stack</a>
 </p>
@@ -24,6 +25,15 @@ AlphaClaw is an **autonomous multi-agent platform** built on the Stacks blockcha
 - **Intelligence Agent (Chat)** — conversational layer with live access to prices, news, and X sentiment. Ask it anything about your portfolio or the market.
 
 Every agent runs under user-defined **guardrails** — trade size limits, APR thresholds, allocation caps, hold periods. Every action is logged on-chain and auditable.
+
+---
+
+## How we use Stacks, USDCx, sBTC
+
+- **Stacks-native execution**: Agents execute trades and yield actions on Stacks, calling into Stacks contracts (e.g. StackingDAO stSTX) from a derived server wallet.
+- **USDCx as base stable**: USDCx is the primary stablecoin the FX and yield agents reason about and allocate from when sizing positions.
+- **sBTC exposure**: sBTC is treated as a first-class asset in the FX universe, allowing agents to rotate between STX, sBTC, and USDCx based on news-driven signals.
+- **Bitcoin-aligned yield**: The yield agent uses Stacks to access Bitcoin-correlated yield (via stSTX and native stacking flows) while keeping UX in a single dashboard.
 
 ---
 
@@ -88,6 +98,20 @@ Ask it why your agent rotated, where yield is highest right now, or what's movin
 
 ---
 
+## Mainnet vs testnet
+
+| | **Mainnet** | **Testnet** |
+|---|-------------|-------------|
+| **Chain** | Real STX, USDCx, sBTC, stSTX on Stacks mainnet | Faucet-funded test assets (e.g. `ST2…` addresses) |
+| **API** | Hiro mainnet (`api.hiro.so` by default) | Hiro testnet (`api.testnet.hiro.so` by default) |
+| **FX agent — trades** | Full set of supported assets; swaps route through **ALEX** (buy *and* sell vs USDCx). | **Demo path only:** **buy STX with USDCx** via AlphaClaw’s small **Clarity swap** contract. **Sells are disabled.** sBTC / multi-asset rotation is not executed on-chain here. |
+| **Yield agent** | Curated opportunities (stSTX, native stacking, USDCx/sBTC pair, etc.); positions follow **live token balances** (e.g. stSTX) where applicable. | Same list for the UI, **plus** an **AlphaClaw staking** opportunity when `STACKS_STAKING_CONTRACT_ID` is set — deposits go to your **testnet stake contract**; positions sync from **contract state**, not mainnet stSTX. |
+| **Contracts** | Point env vars at your **mainnet** contract IDs when you use custom AlphaClaw contracts. | Use **testnet** principals (e.g. `alpha-claw-swap`, `alpha-claw-stake` on testnet). |
+
+**Summary:** Mainnet is the full product (ALEX routing, broader FX, real liquidity). Testnet is for **safe demos and judging** — wallet connect and agents run on testnet, but FX execution is intentionally narrow (USDCx → STX buys only) and yield focuses on the deployable AlphaClaw stake flow.
+
+---
+
 ## Architecture
 
 ```
@@ -117,7 +141,7 @@ Ask it why your agent rotated, where yield is highest right now, or what's movin
 
 **Real-time progress:** Node.js EventEmitter → WebSocket at `/api/ws`. Frontend `useAgentProgress()` hook streams live updates to the dashboard.
 
-**Trade execution:** Trades execute on Stacks using ALEX routing. Default slippage 0.5%.
+**Trade execution:** On **mainnet**, swaps use **ALEX** (default slippage 0.5%). On **testnet**, FX buys use the **alpha-claw-swap** contract (USDCx → STX) only — see [Mainnet vs testnet](#mainnet-vs-testnet).
 
 **TEE (Trusted Execution Environment):** Agent execution runs inside a TEE powered by [Phala Network](https://phala.network). Every agent run produces a cryptographic attestation — a signed proof that the agent logic executed in a secure, tamper-proof enclave. Attestations are generated per run, linked to timeline events and on-chain transactions, and are independently verifiable. This ensures that no one — not even AutoClaw operators — can tamper with agent decisions or trade execution after the fact.
 
@@ -137,14 +161,6 @@ Ask it why your agent rotated, where yield is highest right now, or what's movin
 
 ---
 
-## How we use Stacks, USDCx, sBTC
-
-- **Stacks-native execution**: Agents execute trades and yield actions on Stacks, calling into Stacks contracts (e.g. StackingDAO stSTX) from a derived server wallet.
-- **USDCx as base stable**: USDCx is the primary stablecoin the FX and yield agents reason about and allocate from when sizing positions.
-- **sBTC exposure**: sBTC is treated as a first-class asset in the FX universe, allowing agents to rotate between STX, sBTC, and USDCx based on news-driven signals.
-- **Bitcoin-aligned yield**: The yield agent uses Stacks to access Bitcoin-correlated yield (via stSTX and native stacking flows) while keeping UX in a single dashboard.
-
----
 
 ## Monorepo Structure
 
